@@ -27,8 +27,6 @@ RUN apt-get -y update && apt-get install -y libmicrohttpd-dev \
     zip \
     lsof wget vim sudo rsync cron mysql-client openssh-server supervisor locate
 
-
-
 # FFmpeg build section
 RUN mkdir ~/ffmpeg_sources
 
@@ -177,12 +175,8 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
         make \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
-ENV GOLANG_VERSION 1.7.5
-ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
-ENV GOLANG_DOWNLOAD_SHA256 2e4dd6c44f0693bef4e7b46cc701513d74c3cc44f2419bf519d7868b12931ac3
-RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
-    && echo "$GOLANG_DOWNLOAD_SHA256  golang.tar.gz" | sha256sum -c - \
-    && tar -C /usr/local -xzf golang.tar.gz \
+COPY go1.7.5.linux-amd64.tar.gz /golang.tar.gz
+RUN tar -C /usr/local -xzf golang.tar.gz \
     && rm golang.tar.gz
 
 ENV GOPATH /go
@@ -192,7 +186,8 @@ RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 
 
 # https://boringssl.googlesource.com/boringssl/+/chromium-stable
-RUN git clone https://boringssl.googlesource.com/boringssl && \
+#RUN git clone https://boringssl.googlesource.com/boringssl && \
+RUN git clone https://github.com/google/boringssl && \
     cd boringssl && \
     git reset --hard c7db3232c397aa3feb1d474d63a1c4dd674b6349 && \
     sed -i s/" -Werror"//g CMakeLists.txt && \
@@ -265,12 +260,21 @@ RUN cd / && git clone https://github.com/sctplab/usrsctp.git && cd /usrsctp && \
     ./configure && \
     make && make install
 
-
+RUN apt-get install -y libdrm-dev
 
 # tag v0.7.4 https://github.com/meetecho/janus-gateway/commit/5ff6907fc9cc6c64d8dc3342969abebad74cc964
-RUN cd / && git clone https://github.com/meetecho/janus-gateway.git && cd /janus-gateway && \
+COPY curl-7.55.1 /curl-7.55.1
+RUN cd / && cd curl-7.55.1 && \
+    ./buildconf && \
+    ./configure && \
+    make && make install
+
+COPY janus-gateway /janus-gateway
+#RUN cd / && git clone https://github.com/meetecho/janus-gateway.git && cd /janus-gateway && \
+RUN cd janus-gateway && \
+    #echo "$PWD" && \
     sh autogen.sh &&  \
-    git checkout origin/master && git reset --hard 5ff6907fc9cc6c64d8dc3342969abebad74cc964 && \ 
+    #git checkout origin/master && git reset --hard 5ff6907fc9cc6c64d8dc3342969abebad74cc964 && \
     PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
     --enable-post-processing \
     --enable-boringssl \
@@ -293,11 +297,3 @@ RUN cd / && git clone https://github.com/meetecho/janus-gateway.git && cd /janus
 COPY nginx.conf /usr/local/nginx/nginx.conf
 
 CMD nginx && janus
-
-# RUN apt-get -y install iperf iperf3
-# RUN git clone https://github.com/HewlettPackard/netperf.git && \
-#     cd netperf && \
-#     bash autogen.sh && \
-#     ./configure && \
-#     make && \
-#     make install 
